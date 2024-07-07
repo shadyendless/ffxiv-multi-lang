@@ -1,0 +1,12 @@
+{
+    "Author": "Jacob Foster",
+    "Name": "FFXIV Multi Lang",
+    "Punchline": "A plugin to show the game in multiple languages.",
+    "Description": "Allows you to show additional languages in the UI. Configure which languages you see with /xivlang",
+    "ApplicableVersion": "any",
+    "Tags": [
+        "plugin",
+        "ui",
+        "language"
+    ],
+}
