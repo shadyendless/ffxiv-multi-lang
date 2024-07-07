@@ -4,9 +4,16 @@ using Dalamud.Plugin;
 using System.IO;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.ClientState.Keys;
+using Dalamud.Game.Text;
+using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
-using FFXIVMultiLang.Windows;
+using System.Collections.Generic;
+using Dalamud.Game.Text.SeStringHandling.Payloads;
+using Dalamud.Game;
+using FFXIVMultiLang.Augments;
+using FFXIVClientStructs.FFXIV.Component.GUI;
+using FFXIVClientStructs.FFXIV.Client.UI;
 
 namespace FFXIVMultiLang;
 
@@ -16,14 +23,15 @@ public sealed class FFXIVMultiLang : IDalamudPlugin
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
 
-    private const string CommandName = "/xivl";
+    private const string CommandName = "/lang";
 
-    private readonly ItemTooltipAugment itemTooltipAugment;
+    private readonly ItemDetailAugment itemDetailAugment;
+    private readonly MonsterNoteAugment monsterNoteAugment;
+    private readonly ToDoListAugment toDoListAugment;
 
     public Configuration Configuration { get; init; }
 
     public readonly WindowSystem WindowSystem = new("FFXIVMultiLang");
-    private MainWindow MainWindow { get; init; }
 
     internal bool ShiftHeld { get; private set; }
 
@@ -33,32 +41,29 @@ public sealed class FFXIVMultiLang : IDalamudPlugin
         Service.Initialize(pluginInterface);
 
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-
-        MainWindow = new MainWindow(this);
-        itemTooltipAugment = new ItemTooltipAugment(this);
+        itemDetailAugment = new ItemDetailAugment(this);
+        monsterNoteAugment = new MonsterNoteAugment(this);
+        toDoListAugment = new ToDoListAugment(this);
 
         Service.Framework.Update += FrameworkOnUpdate;
+        Service.AddonLifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, "ItemDetail", itemDetailAugment.RequestedUpdate);
+        Service.AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "ItemDetail", itemDetailAugment.RequestedUpdate);
+        Service.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "MonsterNote", monsterNoteAugment.OnPostMonsterNoteSetup);
+        Service.AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "MonsterNote", monsterNoteAugment.OnMonsterNotePreDraw);
 
-        Service.AddonLifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, "ItemDetail", itemTooltipAugment.RequestedUpdate);
-
-        WindowSystem.AddWindow(MainWindow);
+        Service.AddonLifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, "_ToDoList", toDoListAugment.OnToDoListPreRequestedUpdate);
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "View additional languages in your game."
+            HelpMessage = "View additional languages in your game. You can set a language with /lang <language>."
         });
-
-        PluginInterface.UiBuilder.Draw += DrawUI;
-
-        // Adds another button that is doing the same but for the main ui of the plugin
-        PluginInterface.UiBuilder.OpenMainUi += ToggleMainUI;
     }
 
     private void FrameworkOnUpdate(IFramework framework)
     {
-        bool shiftState = Service.KeyState[VirtualKey.CONTROL];
+        bool shiftState = Service.KeyState[VirtualKey.SHIFT];
 
-        if (shiftState = ShiftHeld) return;
+        if (shiftState == ShiftHeld) return;
 
         ShiftHeld = shiftState;
     }
@@ -66,19 +71,55 @@ public sealed class FFXIVMultiLang : IDalamudPlugin
     public void Dispose()
     {
         WindowSystem.RemoveAllWindows();
-        MainWindow.Dispose();
         CommandManager.RemoveHandler(CommandName);
 
-        Service.AddonLifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, "ItemDetail", itemTooltipAugment.RequestedUpdate);
+        monsterNoteAugment?.Cleanup();
+        Service.AddonLifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, "ItemDetail", itemDetailAugment.RequestedUpdate);
+        Service.AddonLifecycle.UnregisterListener(AddonEvent.PreDraw, "ItemDetail", itemDetailAugment.RequestedUpdate);
+
+        if (monsterNoteAugment != null)
+        {
+            Service.AddonLifecycle.UnregisterListener(AddonEvent.PostSetup, "MonsterNote", monsterNoteAugment.OnPostMonsterNoteSetup);
+            Service.AddonLifecycle.UnregisterListener(AddonEvent.PreDraw, "MonsterNote", monsterNoteAugment.OnMonsterNotePreDraw);
+        }
+
+
+        if (toDoListAugment != null)
+        {
+            Service.AddonLifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, "_ToDoList", toDoListAugment.OnToDoListPreRequestedUpdate);
+        }
     }
 
-    private void OnCommand(string command, string args)
+    private unsafe void OnCommand(string command, string args)
     {
-        // in response to the slash command, just toggle the display status of our main ui
-        ToggleMainUI();
+        if (args == "")
+        {
+            Service.ChatGui.Print(new XivChatEntry
+            {
+                Message = new SeString(new List<Payload>
+                    {
+                        new UIForegroundPayload(0),
+                        new TextPayload($"Your language is currently set to: "),
+                        new UIForegroundPayload(34),
+                        new TextPayload($"{Configuration.ConfiguredLanguage}."),
+                        new UIForegroundPayload(0),
+                        new TextPayload($"\nThe supported languages are: "),
+                        new TextPayload($"\n    - Japanese (JP)"),
+                        new TextPayload($"\n    - English (EN)"),
+                        new TextPayload($"\n    - German (DE)"),
+                        new TextPayload($"\n    - French (FR)"),
+                        new UIForegroundPayload(0),
+                    }),
+                Type = XivChatType.Echo
+            });
+        }
+        else
+        {
+            ClientLanguage inputLanguage = Utils.GetClientLanguageFromInput(args);
+            Configuration.ConfiguredLanguage = inputLanguage;
+
+            toDoListAugment.HandleLanguageChanged();
+            itemDetailAugment.HandleLanguageChanged();
+        }
     }
-
-    private void DrawUI() => WindowSystem.Draw();
-
-    public void ToggleMainUI() => MainWindow.Toggle();
 }
