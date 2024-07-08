@@ -14,6 +14,11 @@ using Dalamud.Game;
 using FFXIVMultiLang.Augments;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.UI.Misc;
+using Lumina.Excel.GeneratedSheets;
+using Dalamud.Game.Inventory;
+using System.Text;
 
 namespace FFXIVMultiLang;
 
@@ -28,6 +33,8 @@ public sealed class FFXIVMultiLang : IDalamudPlugin
     private readonly ItemDetailAugment itemDetailAugment;
     private readonly MonsterNoteAugment monsterNoteAugment;
     private readonly ToDoListAugment toDoListAugment;
+    private readonly InventoryAugment inventoryAugment;
+    private readonly JournalDetailAugment journalDetailAugment;
 
     public Configuration Configuration { get; init; }
 
@@ -44,14 +51,22 @@ public sealed class FFXIVMultiLang : IDalamudPlugin
         itemDetailAugment = new ItemDetailAugment(this);
         monsterNoteAugment = new MonsterNoteAugment(this);
         toDoListAugment = new ToDoListAugment(this);
+        inventoryAugment = new InventoryAugment(this);
+        journalDetailAugment = new JournalDetailAugment(this);
 
         Service.Framework.Update += FrameworkOnUpdate;
         Service.AddonLifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, "ItemDetail", itemDetailAugment.RequestedUpdate);
         Service.AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "ItemDetail", itemDetailAugment.RequestedUpdate);
+
         Service.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "MonsterNote", monsterNoteAugment.OnPostMonsterNoteSetup);
         Service.AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "MonsterNote", monsterNoteAugment.OnMonsterNotePreDraw);
 
         Service.AddonLifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, "_ToDoList", toDoListAugment.OnToDoListPreRequestedUpdate);
+        Service.AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "_ToDoList", toDoListAugment.OnToDoListPreDraw);
+
+        Service.AddonLifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, "InventoryGrid0E", inventoryAugment.RequestedUpdate);
+
+        Service.AddonLifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, "JournalDetail", journalDetailAugment.OnJournalDetailRequestedUpdate);
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
@@ -87,6 +102,17 @@ public sealed class FFXIVMultiLang : IDalamudPlugin
         if (toDoListAugment != null)
         {
             Service.AddonLifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, "_ToDoList", toDoListAugment.OnToDoListPreRequestedUpdate);
+            Service.AddonLifecycle.UnregisterListener(AddonEvent.PreDraw, "_ToDoList", toDoListAugment.OnToDoListPreDraw);
+        }
+
+        if (inventoryAugment != null)
+        {
+            Service.AddonLifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, "InventoryGrid0E", inventoryAugment.RequestedUpdate);
+        }
+
+        if (journalDetailAugment != null)
+        {
+            Service.AddonLifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, "JournalDetail", journalDetailAugment.OnJournalDetailRequestedUpdate);
         }
     }
 
@@ -120,6 +146,7 @@ public sealed class FFXIVMultiLang : IDalamudPlugin
 
             toDoListAugment.HandleLanguageChanged();
             itemDetailAugment.HandleLanguageChanged();
+            inventoryAugment.HandleLanguageChanged();
         }
     }
 }

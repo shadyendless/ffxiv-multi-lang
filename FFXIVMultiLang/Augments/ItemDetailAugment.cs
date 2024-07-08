@@ -43,7 +43,7 @@ public unsafe class ItemDetailAugment
         var descriptionStr = GetTooltipString(stringArrayData, ItemTooltipField.ItemDescription);
         var effectsStr = GetTooltipString(stringArrayData, ItemTooltipField.Effects);
 
-        UpdateItemTooltipName(nameStr, nameStr.ToString(), item);
+        UpdateItemTooltipName(nameStr, item);
         UpdateItemTooltipCategory(categoryStr, originalItem, item);
         UpdateItemTooltipDescription(descriptionStr, originalItem, item);
 
@@ -67,17 +67,13 @@ public unsafe class ItemDetailAugment
         return stringAddress != nint.Zero ? MemoryHelper.ReadSeStringNullTerminated(stringAddress) : new SeString();
     }
 
-    private void UpdateItemTooltipName(SeString seStr, string originalItemName, Item item)
+    private void UpdateItemTooltipName(SeString seStr, Item item)
     {
         if (seStr.ToString() == "") return;
-
-        int lastCharCode = ((int)seStr.ToString().Last());
-        string appendString = lastCharCode == 57404 ? $" {seStr.ToString().Last()}" : "";
-
         if (seStr.TextValue.StartsWith('[')) return;
 
         seStr.Payloads.Clear();
-        seStr.Payloads.Add(new TextPayload($"{item.Name}{appendString}"));
+        seStr.Payloads.Add(new TextPayload($"{item.Name}{(Service.GameGui.HoveredItem > 500000 ? " \xE03C" : "")}"));
     }
 
     private void UpdateItemTooltipCategory(SeString seStr, Item? originalItem, Item? item)
