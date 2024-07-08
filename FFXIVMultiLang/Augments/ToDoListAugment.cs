@@ -12,6 +12,7 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Application.Network.WorkDefinitions;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using System.Runtime.InteropServices;
+using static FFXIVClientStructs.FFXIV.Client.UI.Info.InfoProxyCommonList;
 
 namespace FFXIVMultiLang.Augments;
 
@@ -73,20 +74,26 @@ public unsafe class ToDoListAugment
             var estimatingText = Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(10044)?.Text ?? "";
             var waitTimeSuffix = Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(1014)?.Text ?? "";
 
-            if (waitTimeSuffix.Contains("Addon"))
+            // Sometimes the Addon entry will reference another entry to use instead, this does that lookup.
+            while (waitTimeSuffix.Contains("Addon"))
             {
                 var addonId = UInt32.Parse(waitTimeSuffix.Split("Addon").Last());
                 waitTimeSuffix = Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(addonId)?.Text ?? "";
             }
 
-            stringArrayData->SetValue(7, $"{waitingText}: {(positionInQueue != -1 ? $"#{positionInQueue}" : estimatingText)}", false, true, false);
-
+            // Data Specific to a Duty Roulette
             var contentRoulette = Service.DataManager.GetExcelSheet<ContentRoulette>(configuration.ConfiguredLanguage)?.GetRow(queueInfo.QueuedContentRouletteId);
-            if (contentRoulette != null)
+            if (contentRoulette != null && queueInfo.QueuedContentRouletteId != 0)
             {
                 stringArrayData->SetValue(0, contentRoulette.Name.ToString(), false, true, false);
+                stringArrayData->SetValue(7, $"{waitingText}: {(positionInQueue != -1 ? $"#{positionInQueue}" : estimatingText)}", false, true, false);
             }
+            
+            // Forming Party Text
+            var formingPartyText = Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(2536)?.Text ?? "";
+            stringArrayData->SetValue(6, formingPartyText, false, true, false);
 
+            // Time Elapsed
             var timeElapsed = (DateTime.Now - DateTimeOffset.FromUnixTimeSeconds(queueInfo.EnteredQueueTimestamp));
             var timeElapsedString = new DateTime(timeElapsed.Ticks).ToString("m:ss");
             var timeElapsedText = Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(10817)?.Text ?? "";
