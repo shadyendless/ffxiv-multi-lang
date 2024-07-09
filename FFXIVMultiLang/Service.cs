@@ -1,6 +1,8 @@
+using Dalamud.Game;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using FFXIVMultiLang.Utils;
 
 #pragma warning disable 8618
 namespace FFXIVMultiLang;
@@ -8,6 +10,8 @@ namespace FFXIVMultiLang;
 internal class Service
 {
     internal static void Initialize(IDalamudPluginInterface pluginInterface) => pluginInterface.Create<Service>();
+
+    public static TextDecoder TextDecoder = new TextDecoder();
 
     [PluginService]
     internal static IAddonEventManager AddonEventManager { get; private set; }
@@ -41,5 +45,8 @@ internal class Service
 
     [PluginService]
     internal static IPluginLog PluginLog { get; private set; }
+
+    [PluginService]
+    internal static ISigScanner SigScanner { get; private set; }
 }
 #pragma warning restore 8618

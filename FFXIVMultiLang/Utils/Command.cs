@@ -2,24 +2,12 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text;
 using Dalamud.Game;
-using Lumina.Excel.GeneratedSheets;
 using System.Collections.Generic;
 
-namespace FFXIVMultiLang;
+namespace FFXIVMultiLang.Utils;
 
-public static class Utils
+public static class Command
 {
-    public static Addon? GetAddonForItem(Item item, Configuration configuration)
-    {
-        switch (item.ItemAction.Value?.Type)
-        {
-            case 847:
-                return Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(998);
-            default:
-                return null;
-        }
-    }
-
     public static ClientLanguage GetClientLanguageFromInput(string language)
     {
         ClientLanguage newLanguage = Service.ClientState.ClientLanguage;

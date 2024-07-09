@@ -1,18 +1,17 @@
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
-using FFXIVClientStructs.FFXIV.Component.GUI;
-using System;
-using System.Linq;
-using Lumina.Excel.GeneratedSheets;
-using FFXIVClientStructs.FFXIV.Client.Game;
-using FFXIVMultiLang.Sheets;
 using Dalamud.Utility;
-using System.Collections.Generic;
-using FFXIVClientStructs.FFXIV.Client.UI;
-using FFXIVClientStructs.FFXIV.Application.Network.WorkDefinitions;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
-using System.Runtime.InteropServices;
-using static FFXIVClientStructs.FFXIV.Client.UI.Info.InfoProxyCommonList;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Component.GUI;
+using FFXIVMultiLang.Sheets;
+using FFXIVMultiLang.Utils;
+using Lumina.Excel.GeneratedSheets;
+using Lumina.Text;
+using System.Collections.Generic;
+using FFXIVMultiLang.Extensions;
+using System.Linq;
 
 namespace FFXIVMultiLang.Augments;
 
@@ -61,6 +60,10 @@ public unsafe class ToDoListAugment
     {
 
         //RaptureAtkUnitManager.Instance()->GetAddonByName("_ToDoList")->GetNodeById(6)->ChildCount->SetScale(1, 1);
+        var addonSheet = Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage);
+        var contentFinderConditionSheet = Service.DataManager.GetExcelSheet<ContentFinderCondition>(configuration.ConfiguredLanguage);
+
+        if (addonSheet == null) return;
 
         var stringArrayData = (AtkStage.Instance()->GetStringArrayData())[24];
         stringArrayData->SetValue(6, Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(10037)?.Text ?? "", false, true, false);
@@ -70,15 +73,15 @@ public unsafe class ToDoListAugment
         if (queueInfo.QueueState != ContentsFinderQueueInfo.QueueStates.None)
         {
             var positionInQueue = queueInfo.PositionInQueue;
-            var waitingText = Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(10038)?.Text ?? "";
-            var estimatingText = Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(10044)?.Text ?? "";
-            var waitTimeSuffix = Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(1014)?.Text ?? "";
+            var waitingText = addonSheet.GetRow(10038)?.Text ?? "";
+            var estimatingText = addonSheet.GetRow(10044)?.Text ?? "";
+            var waitTimeSuffix = addonSheet.GetRow(1014)?.Text ?? "";
 
             // Sometimes the Addon entry will reference another entry to use instead, this does that lookup.
             while (waitTimeSuffix.Contains("Addon"))
             {
                 var addonId = UInt32.Parse(waitTimeSuffix.Split("Addon").Last());
-                waitTimeSuffix = Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(addonId)?.Text ?? "";
+                waitTimeSuffix = addonSheet.GetRow(addonId)?.Text ?? "";
             }
 
             // Data Specific to a Duty Roulette
@@ -88,9 +91,9 @@ public unsafe class ToDoListAugment
                 stringArrayData->SetValue(0, contentRoulette.Name.ToString(), false, true, false);
                 stringArrayData->SetValue(7, $"{waitingText}: {(positionInQueue != -1 ? $"#{positionInQueue}" : estimatingText)}", false, true, false);
             }
-            
+
             // Forming Party Text
-            var formingPartyText = Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(2536)?.Text ?? "";
+            var formingPartyText = addonSheet.GetRow(2536)?.Text ?? "";
             stringArrayData->SetValue(6, formingPartyText, false, true, false);
 
             // Time Elapsed
@@ -105,11 +108,36 @@ public unsafe class ToDoListAugment
 
             stringArrayData->SetValue(8, waitingString, false, true, false);
         }
+
+        if (queueInfo.QueuedContentFinderConditionId1 > 0)
+        {
+            stringArrayData->SetValue(0, contentFinderConditionSheet?.GetRow(queueInfo.QueuedContentFinderConditionId1)?.Name?.ToString()?.FirstCharToUpper() ?? "", false, true, false);
+        }
+
+        if (queueInfo.QueuedContentFinderConditionId2 > 0)
+        {
+            stringArrayData->SetValue(1, contentFinderConditionSheet?.GetRow(queueInfo.QueuedContentFinderConditionId2)?.Name.ToString()?.FirstCharToUpper() ?? "", false, true, false);
+        }
+
+        if (queueInfo.QueuedContentFinderConditionId3 > 0)
+        {
+            stringArrayData->SetValue(2, contentFinderConditionSheet?.GetRow(queueInfo.QueuedContentFinderConditionId3)?.Name.ToString()?.FirstCharToUpper() ?? "", false, true, false);
+        }
+
+        if (queueInfo.QueuedContentFinderConditionId4 > 0)
+        {
+            stringArrayData->SetValue(3, contentFinderConditionSheet?.GetRow(queueInfo.QueuedContentFinderConditionId4)?.Name.ToString()?.FirstCharToUpper() ?? "", false, true, false);
+        }
+
+        if (queueInfo.QueuedContentFinderConditionId5 > 0)
+        {
+            stringArrayData->SetValue(4, contentFinderConditionSheet?.GetRow(queueInfo.QueuedContentFinderConditionId5)?.Name.ToString()?.FirstCharToUpper() ?? "", false, true, false);
+        }
     }
 
     private void UpdateQuestLog()
     {
-        List<(Quest, QuestText?, ushort)> trackedQuestData = new List<(Quest, QuestText?, ushort)>();
+        List<(Quest, QuestText?, ushort, uint)> trackedQuestData = new List<(Quest, QuestText?, ushort, uint)>();
 
         var normalQuests = QuestManager.Instance()->NormalQuests;
         var trackedQuests = QuestManager.Instance()->TrackedQuests;
@@ -120,9 +148,12 @@ public unsafe class ToDoListAugment
             if (trackedQuest.QuestType == 0) continue;
 
             var questId = normalQuests[trackedQuest.Index].QuestId;
+            var acceptClassJob = normalQuests[trackedQuest.Index].AcceptClassJob;
             var quest = Service.DataManager.GetExcelSheet<Quest>(configuration.ConfiguredLanguage)?.GetRow(questId + (uint)65535 + (uint)1);
 
             if (quest == null) continue;
+
+            Service.PluginLog.Info(normalQuests[i].AcceptClassJob.ToString());
 
             var questStep = quest.ToDoCompleteSeq.ToList().IndexOf(QuestManager.GetQuestSequence(questId));
             var currentStep = questStep.ToString().PadLeft(2, '0');
@@ -132,7 +163,7 @@ public unsafe class ToDoListAugment
 
             var questText = Service.DataManager.Excel.GetSheet<QuestText>(configuration.ConfiguredLanguage.ToLumina(), questPath)?.FirstOrDefault(rowData => rowData.Id.ToString() == currentStepKey);
 
-            trackedQuestData.Add((quest, questText, questId));
+            trackedQuestData.Add((quest, questText, questId, acceptClassJob));
         }
 
         trackedQuestData.Reverse();
@@ -141,41 +172,22 @@ public unsafe class ToDoListAugment
 
         for (var i = 0; i < trackedQuestData.Count; i++)
         {
-            var (q, t, id) = trackedQuestData[i];
+            var (q, t, id, lnum4) = trackedQuestData[i];
             stringArrayData->SetValue(9 + i, q.Name, false, true, true);
-            stringArrayData->SetValue(9 + trackedQuestData.Count + i, BuildQuestDescription(q, t, id), false, true, false);
+            stringArrayData->SetValue(9 + trackedQuestData.Count + i, BuildQuestDescription(q, t, id, lnum4), false, true, false);
         }
     }
 
-    private unsafe string BuildQuestDescription(Quest quest, QuestText? text, ushort questId)
+    private unsafe byte[] BuildQuestDescription(Quest quest, QuestText? text, ushort questId, uint lnum4)
     {
-        if (text == null) return "<<ERR>>";
+        if (text == null) return [];
 
         var questStep = quest.ToDoCompleteSeq.ToList().IndexOf(QuestManager.GetQuestSequence(questId));
+        var description = MacroString.ProcessMacroString(text.Description, configuration.ConfiguredLanguage, (int)lnum4);
         bool showItemCounter = quest.ToDoQty[0] > 1;
-        string description = text.Description;
 
-        if (description.Contains("EObj") || description.Contains("EventItem"))
-        {
-            var itemId = quest.ScriptArg[1];
-            var eventItem = Service.DataManager.GetExcelSheet<EObjName>(configuration.ConfiguredLanguage)?.GetRow(itemId);
-            
-            if (eventItem != null)
-            {
-                string replacementItem = (showItemCounter && eventItem.Plural.ToString() != "" ? eventItem.Plural : eventItem.Singular).ToString();
-
-                if (eventItem != null)
-                {
-                    description = description.Replace("EObj", replacementItem).Replace("EventItem", replacementItem);
-                }
-            }
-        }
-
-        if (showItemCounter)
-        {
-            description += $" {QuestManager.Instance()->GetQuestById(questId)->Variables.ToArray()[0]}/{quest.ToDoQty[0]}";
-        }
-
-        return description;
+        return new SeString(
+            MacroString.ProcessMacroString(text.Description, configuration.ConfiguredLanguage, (int)lnum4).Data.ToArray()
+        ).ToDalamudString().Append(showItemCounter ? $" {QuestManager.Instance()->GetQuestById(questId)->Variables.ToArray()[0]}/{quest.ToDoQty[0]}" : "").Encode();
     }
 }
