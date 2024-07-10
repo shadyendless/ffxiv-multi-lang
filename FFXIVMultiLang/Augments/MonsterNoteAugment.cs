@@ -36,10 +36,10 @@ public class MonsterNoteAugment
             var targetNode = addon->GetNodeById(i);
             targetNode->NodeFlags |= NodeFlags.EmitsEvents | NodeFlags.RespondToMouse | NodeFlags.HasCollision;
 
-            var ev = Service.AddonEventManager.AddEvent((nint)addon, (nint)targetNode, AddonEventType.MouseOver, TooltipHandler);
+            var ev = Services.AddonEventManager.AddEvent((nint)addon, (nint)targetNode, AddonEventType.MouseOver, TooltipHandler);
             if (ev != null) mouseOver.Add(ev);
 
-            ev = Service.AddonEventManager.AddEvent((nint)addon, (nint)targetNode, AddonEventType.MouseOut, TooltipHandler);
+            ev = Services.AddonEventManager.AddEvent((nint)addon, (nint)targetNode, AddonEventType.MouseOut, TooltipHandler);
             if (ev != null) mouseOut.Add(ev);
         }
     }
@@ -52,13 +52,13 @@ public class MonsterNoteAugment
 
         // Update Class Header
         ((AtkUnitBase*)addon)->GetNodeById(3)->GetAsAtkTextNode()->SetText(
-            Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(1882)?.Text ??
+            Services.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(1882)?.Text ??
             Marshal.PtrToStringUTF8((nint)((AtkUnitBase*)addon)->GetNodeById(3)->GetAsAtkTextNode()->GetText())
         );
 
         // Update Rank Header
         ((AtkUnitBase*)addon)->GetNodeById(15)->GetAsAtkTextNode()->SetText(
-            Service.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(1883)?.Text ??
+            Services.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(1883)?.Text ??
             Marshal.PtrToStringUTF8((nint)((AtkUnitBase*)addon)->GetNodeById(3)->GetAsAtkTextNode()->GetText())
         );
 
@@ -71,8 +71,8 @@ public class MonsterNoteAugment
 
     public void Cleanup()
     {
-        foreach (var ev in mouseOver) Service.AddonEventManager.RemoveEvent(ev);
-        foreach (var ev in mouseOut) Service.AddonEventManager.RemoveEvent(ev);
+        foreach (var ev in mouseOver) Services.AddonEventManager.RemoveEvent(ev);
+        foreach (var ev in mouseOut) Services.AddonEventManager.RemoveEvent(ev);
     }
 
     private unsafe void TooltipHandler(AddonEventType type, IntPtr addon, IntPtr node)

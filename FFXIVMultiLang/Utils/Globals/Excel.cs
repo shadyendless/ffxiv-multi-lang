@@ -8,7 +8,7 @@ public static class Excel
 {
     [Obsolete]
     public static ExcelSheet<T> GetSheet<T>(ClientLanguage? language = null) where T : ExcelRow
-        => Service.DataManager.GetExcelSheet<T>(language ?? Service.ClientState.ClientLanguage)!;
+        => Services.DataManager.GetExcelSheet<T>(language ?? Services.ClientState.ClientLanguage)!;
 
     [Obsolete]
     public static uint GetRowCount<T>() where T : ExcelRow

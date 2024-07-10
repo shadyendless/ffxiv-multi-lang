@@ -7,9 +7,9 @@ using FFXIVMultiLang.Utils;
 #pragma warning disable 8618
 namespace FFXIVMultiLang;
 
-internal class Service
+internal class Services
 {
-    internal static void Initialize(IDalamudPluginInterface pluginInterface) => pluginInterface.Create<Service>();
+    internal static void Initialize(IDalamudPluginInterface pluginInterface) => pluginInterface.Create<Services>();
 
     public static TextDecoder TextDecoder = new TextDecoder();
 

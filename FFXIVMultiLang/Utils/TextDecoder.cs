@@ -65,24 +65,24 @@ public unsafe class TextDecoder()
         if (_cache.TryGetValue(key, out var value))
             return value;
 
-        var attributiveSheet = Service.DataManager.GameData.Excel.GetSheetRaw("Attributive", language.ToLumina());
+        var attributiveSheet = Services.DataManager.GameData.Excel.GetSheetRaw("Attributive", language.ToLumina());
         if (attributiveSheet == null)
         {
-            Service.PluginLog.Warning("Sheet Attributive not found");
+            Services.PluginLog.Warning("Sheet Attributive not found");
             return string.Empty;
         }
 
-        var sheet = Service.DataManager.GameData.Excel.GetSheetRaw(SheetName, language.ToLumina());
+        var sheet = Services.DataManager.GameData.Excel.GetSheetRaw(SheetName, language.ToLumina());
         if (sheet == null)
         {
-            Service.PluginLog.Warning("Sheet {SheetName} not found", SheetName);
+            Services.PluginLog.Warning("Sheet {SheetName} not found", SheetName);
             return string.Empty;
         }
 
         var row = sheet.GetRow((uint)RowId);
         if (row == null)
         {
-            Service.PluginLog.Warning("Sheet {SheetName} does not contain row #{RowId}", SheetName, RowId);
+            Services.PluginLog.Warning("Sheet {SheetName} does not contain row #{RowId}", SheetName, RowId);
             return string.Empty;
         }
 

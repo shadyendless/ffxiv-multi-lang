@@ -10,7 +10,7 @@ public static class Command
 {
     public static ClientLanguage GetClientLanguageFromInput(string language)
     {
-        ClientLanguage newLanguage = Service.ClientState.ClientLanguage;
+        ClientLanguage newLanguage = Services.ClientState.ClientLanguage;
 
         switch (language.ToUpper())
         {
@@ -35,10 +35,10 @@ public static class Command
                 newLanguage = ClientLanguage.German;
                 break;
             case "RESET":
-                newLanguage = Service.ClientState.ClientLanguage;
+                newLanguage = Services.ClientState.ClientLanguage;
                 break;
             default:
-                Service.ChatGui.Print(new XivChatEntry
+                Services.ChatGui.Print(new XivChatEntry
                 {
                     Message = new SeString(new List<Payload>
                     {
@@ -58,15 +58,15 @@ public static class Command
                     }),
                     Type = XivChatType.Echo
                 });
-                return Service.ClientState.ClientLanguage;
+                return Services.ClientState.ClientLanguage;
         }
 
-        Service.ChatGui.Print(new XivChatEntry
+        Services.ChatGui.Print(new XivChatEntry
         {
             Message = new SeString(new List<Payload>
                     {
                         new UIForegroundPayload(0),
-                        newLanguage == Service.ClientState.ClientLanguage ?
+                        newLanguage == Services.ClientState.ClientLanguage ?
                             new TextPayload($"Resetting your language to ") :
                             new TextPayload($"Setting your language to "),
                         new UIForegroundPayload(34),

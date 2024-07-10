@@ -47,7 +47,7 @@ public unsafe class InventoryAugment
 
             if (invItem == null) continue;
 
-            var item = Service.DataManager.GetExcelSheet<Item>(configuration.ConfiguredLanguage)?.GetRow(invItem->ItemId);
+            var item = Services.DataManager.GetExcelSheet<Item>(configuration.ConfiguredLanguage)?.GetRow(invItem->ItemId);
 
             if (item == null) continue;
 
@@ -56,7 +56,7 @@ public unsafe class InventoryAugment
             var currentStringIndex = i + ((inventoryNumber - 1) * intentoryBlockSize);
             var newString = $"{item.Name}{(isHq ? "\xE03C" : "")}";
 
-            Service.PluginLog.Info($"[{currentStringIndex}] {newString}");
+            Services.PluginLog.Info($"[{currentStringIndex}] {newString}");
 
             stringArrayData->SetValue(currentStringIndex, $"{item.Name}{(isHq ? "\xE03C" : "")}", false, true, true);
         }

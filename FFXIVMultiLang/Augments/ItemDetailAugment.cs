@@ -1,13 +1,13 @@
-using System;
-using System.Linq;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Memory;
+using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using FFXIVMultiLang.Utils;
 using Lumina.Excel.GeneratedSheets;
+using System.Text;
 
 namespace FFXIVMultiLang;
 
@@ -29,31 +29,51 @@ public unsafe class ItemDetailAugment
 
     public void HandleLanguageChanged()
     {
-        var itemId = Service.GameGui.HoveredItem;
+        if (!configuration.SwapItemDetailLanguage) return;
 
-        Item? originalItem = Service.DataManager.GetExcelSheet<Item>()!.GetRow((uint)(itemId % 500000));
-        Item? item = Service.DataManager.GetExcelSheet<Item>(configuration.ConfiguredLanguage)!.GetRow((uint)(itemId % 500000));
+        var itemId = Services.GameGui.HoveredItem;
 
-        if (item == null) return;
+        if (itemId == 0) return;
 
-        var stringArrayData = (AtkStage.Instance()->GetStringArrayData())[26];
+        var isHq = itemId > 1000000 && itemId < 2000000;
+        var isEventItem = itemId > 2000000;
 
-        var nameStr = GetTooltipString(stringArrayData, ItemTooltipField.ItemName);
-        var categoryStr = GetTooltipString(stringArrayData, ItemTooltipField.ItemUiCategory);
-        var descriptionStr = GetTooltipString(stringArrayData, ItemTooltipField.ItemDescription);
-        var effectsStr = GetTooltipString(stringArrayData, ItemTooltipField.Effects);
+        if (isEventItem)
+        {
+            EventItem? item = Services.DataManager.GetExcelSheet<EventItem>(configuration.ConfiguredLanguage)!.GetRow((uint)(itemId));
 
-        UpdateItemTooltipName(nameStr, item);
-        UpdateItemTooltipCategory(categoryStr, originalItem, item);
-        UpdateItemTooltipDescription(descriptionStr, originalItem, item);
+            if (item == null) return;
 
-        stringArrayData->SetValue(ItemTooltipField.ItemName, nameStr.Encode(), false, true, false);
-        stringArrayData->SetValue(ItemTooltipField.ItemUiCategory, categoryStr.Encode(), false, true, false);
-        stringArrayData->SetValue(ItemTooltipField.ItemDescription, descriptionStr.Encode(), false, true, false);
+            var stringArrayData = (AtkStage.Instance()->GetStringArrayData())[26];
+
+            var nameStr = UpdateItemTooltipName(item);
+            var categoryStr = UpdateItemTooltipCategory(item);
+            var descriptionStr = UpdateItemTooltipDescription(item);
+
+            stringArrayData->SetValue(ItemTooltipField.ItemName, nameStr, false, true, false);
+            stringArrayData->SetValue(ItemTooltipField.ItemUiCategory, categoryStr, false, true, false);
+            stringArrayData->SetValue(ItemTooltipField.ItemDescription, descriptionStr, false, true, false);
+        }
+        else
+        {
+            Item? item = Services.DataManager.GetExcelSheet<Item>(configuration.ConfiguredLanguage)!.GetRow((uint)(itemId % 500000));
+
+            if (item == null) return;
+
+            var stringArrayData = (AtkStage.Instance()->GetStringArrayData())[26];
+
+            var nameStr = UpdateItemTooltipName(item);
+            var categoryStr = UpdateItemTooltipCategory(item);
+            var descriptionStr = UpdateItemTooltipDescription(item);
+
+            var recastLabel = Services.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(702)?.Text ?? string.Empty;
 
 
-        var tooltipData = (AtkStage.Instance()->GetStringArrayData())[7];
-        tooltipData->SetValue(26, "90001", false, true, false);
+            stringArrayData->SetValue(ItemTooltipField.ItemName, nameStr, false, true, false);
+            stringArrayData->SetValue(ItemTooltipField.ItemUiCategory, categoryStr, false, true, false);
+            stringArrayData->SetValue(ItemTooltipField.ItemDescription, descriptionStr, false, true, false);
+            stringArrayData->SetValue(ItemTooltipField.ItemRecastLabel, recastLabel, false, true, false);
+        }
 
         RaptureAtkUnitManager.Instance()->GetAddonByName("ItemDetail")->OnRequestedUpdate(
             AtkStage.Instance()->GetNumberArrayData(),
@@ -64,44 +84,64 @@ public unsafe class ItemDetailAugment
     private static unsafe SeString GetTooltipString(StringArrayData* stringArrayData, int field)
     {
         var stringAddress = new nint(stringArrayData->StringArray[field]);
+
         return stringAddress != nint.Zero ? MemoryHelper.ReadSeStringNullTerminated(stringAddress) : new SeString();
     }
 
-    private void UpdateItemTooltipName(SeString seStr, Item item)
+    private byte[] UpdateItemTooltipName(Item item)
     {
-        if (seStr.ToString() == "") return;
-        if (seStr.TextValue.StartsWith('[')) return;
+        return new Lumina.Text.SeString(
+            MacroString.ProcessMacroString(item.Name, configuration.ConfiguredLanguage).Data.ToArray()
+        ).ToDalamudString().Append(Services.GameGui.HoveredItem > 500000 ? " \xE03C" : "").Encode();
+    }
+    private byte[] UpdateItemTooltipName(EventItem item)
+    {
+        var name = item.Name.ToString().Length > 0 ? item.Name : item.Singular;
 
-        seStr.Payloads.Clear();
-        seStr.Payloads.Add(new TextPayload($"{item.Name}{(Service.GameGui.HoveredItem > 500000 ? " \xE03C" : "")}"));
+        return new Lumina.Text.SeString(
+            MacroString.ProcessMacroString(name, configuration.ConfiguredLanguage).Data.ToArray()
+        ).ToDalamudString().Encode();
     }
 
-    private void UpdateItemTooltipCategory(SeString seStr, Item? originalItem, Item? item)
+    private byte[] UpdateItemTooltipCategory(Item item)
     {
-        if (originalItem == null || item == null) return;
-
-        var originalCategory = originalItem.ItemUICategory.Value?.Name;
         var localizedCategory = item.ItemUICategory.Value?.Name;
 
-        if (originalCategory == null || originalCategory == "" || localizedCategory == null || localizedCategory == "") return;
+        if (localizedCategory == null) return [];
 
-        seStr.Payloads.Clear();
-        seStr.Payloads.Add(new TextPayload(localizedCategory));
+        return new Lumina.Text.SeString(
+            MacroString.ProcessMacroString(localizedCategory, configuration.ConfiguredLanguage).Data.ToArray()
+        ).ToDalamudString().Encode();
+    }
+    private byte[] UpdateItemTooltipCategory(EventItem item)
+    {
+        var localizedQuestLabel = Services.DataManager.GetExcelSheet<Addon>(configuration.ConfiguredLanguage)?.GetRow(12723)?.Text ?? string.Empty;
+        var questName = item.Quest.Value?.Name;
+
+        if (questName == null || questName == string.Empty) return [];
+
+        return Encoding.UTF8.GetBytes($"{localizedQuestLabel}: {questName}");
     }
 
-    private void UpdateItemTooltipDescription(SeString seStr, Item? originalItem, Item? item)
+    private byte[] UpdateItemTooltipDescription(Item item)
     {
-        if (originalItem == null || item == null) return;
+        if (item == null) return [];
 
-        seStr.Payloads.Clear();
-        seStr.Payloads.Add(new TextPayload($"{item?.Description}\n"));
+        return new Lumina.Text.SeString(
+            MacroString.ProcessMacroString(item.Description, configuration.ConfiguredLanguage).Data.ToArray()
+        ).ToDalamudString().Encode();
     }
-
-    private void UpdateItemTooltipEffects(SeString seStr, Item? originalItem, Item? item)
+    private byte[] UpdateItemTooltipDescription(EventItem item)
     {
-        if (originalItem == null || item == null) return;
+        var description = Services.DataManager.GetExcelSheet<EventItemHelp>(configuration.ConfiguredLanguage)?.GetRow(item.RowId)?.Description;
 
-        seStr.Payloads.Add(new TextPayload(item?.Description));
+        if (description == null) return [];
+
+        var name = item.Name.ToString().Length > 0 ? item.Name : item.Singular;
+
+        return new Lumina.Text.SeString(
+            MacroString.ProcessMacroString(description, configuration.ConfiguredLanguage).Data.ToArray()
+        ).ToDalamudString().Encode();
     }
 
 }

@@ -11,9 +11,9 @@ public static class MacroString
 {
     public static ReadOnlySeString ProcessMacroString(SeString input, ClientLanguage language, int lnum4 = 0)
     {
-        Service.PluginLog.Debug($"[Macro String -] {input.ToMacroString()}");
+        //Services.PluginLog.Debug($"[Macro String -] {input.ToMacroString()}");
         var result = InternalProcessMacroString(input.AsReadOnly(), language, lnum4);
-        Service.PluginLog.Debug($"[Macro String =] {result}");
+        //Services.PluginLog.Debug($"[Macro String =] {result}");
         return result;
     }
 
@@ -32,6 +32,46 @@ public static class MacroString
                 case ReadOnlySePayloadType.Macro:
                     switch (payload.MacroCode)
                     {
+                        case MacroCode.NonBreakingSpace:
+                            sb.Append(" ");
+                            break;
+
+                        case MacroCode.Hyphen:
+                            sb.Append("-");
+                            break;
+
+                        case MacroCode.SoftHyphen:
+                            sb.Append("");
+                            break;
+
+                        case MacroCode.ColorType:
+                            {
+                                if (!payload.TryGetExpression(out var expr1))
+                                    break;
+
+                                if (!expr1.TryGetUInt(out var color))
+                                    break;
+
+                                if (color == 0) sb.PopColorType();
+                                else sb.PushColorType(color);
+
+                                break;
+                            }
+
+                        case MacroCode.EdgeColorType:
+                            {
+                                if (!payload.TryGetExpression(out var expr1))
+                                    break;
+
+                                if (!expr1.TryGetUInt(out var color))
+                                    break;
+
+                                if (color == 0) sb.PopEdgeColorType();
+                                else sb.PushEdgeColorType(color);
+
+                                break;
+                            }
+
                         case MacroCode.Head:
                             {
                                 if (!payload.TryGetExpression(out var expr1))
@@ -90,8 +130,8 @@ public static class MacroString
                                 if (sheetName == "EObj")
                                     sheetName = "EObjName";
 
-                                var resolvedRow = Service.DataManager.GameData.Excel.GetSheetRaw(sheetName, language.ToLumina())?.GetRow((uint)rowId);
-                                var resolvedValue = Service.DataManager.GameData.Excel.GetSheetRaw(sheetName, language.ToLumina())?.GetRow((uint)rowId)?.ReadColumn<SeString>(columnIndex);
+                                var resolvedRow = Services.DataManager.GameData.Excel.GetSheetRaw(sheetName, language.ToLumina())?.GetRow((uint)rowId);
+                                var resolvedValue = Services.DataManager.GameData.Excel.GetSheetRaw(sheetName, language.ToLumina())?.GetRow((uint)rowId)?.ReadColumn<SeString>(columnIndex);
 
                                 if (sheetName == "Item")
                                 {
@@ -135,7 +175,7 @@ public static class MacroString
                             break;
 
                         default:
-                            Service.PluginLog.Info($"UNHANDLED MACRO: {payload.MacroCode}");
+                            Services.PluginLog.Warning($"UNHANDLED MACRO: {payload.MacroCode}");
                             sb.Append(payload);
                             break;
                     }
@@ -173,20 +213,20 @@ public static class MacroString
 
         if (sheetName == "Item")
         {
-            var item = Service.DataManager.GetExcelSheet<Item>(language)?.GetRow((uint)rowId);
+            var item = Services.DataManager.GetExcelSheet<Item>(language)?.GetRow((uint)rowId);
 
             if (item != null)
             {
                 sb.PushColorType((uint)(547 + item.Rarity * 2));
                 sb.PushEdgeColorType((uint)(547 + item.Rarity * 2 + 1));
-                sb.Append(Service.TextDecoder.ProcessNoun(language, sheetName, person, rowId, amount, @case));
+                sb.Append(Services.TextDecoder.ProcessNoun(language, sheetName, person, rowId, amount, @case));
                 sb.PopEdgeColorType();
                 sb.PopColorType();
             }
         }
         else
         {
-            sb.Append(Service.TextDecoder.ProcessNoun(language, sheetName, person, rowId, amount, @case));
+            sb.Append(Services.TextDecoder.ProcessNoun(language, sheetName, person, rowId, amount, @case));
         }
 
         return sb.ToReadOnlySeString();
@@ -204,7 +244,7 @@ public static class MacroString
                 leftSide = lnum4;
                 break;
             default:
-                Service.PluginLog.Info($"[ERROR] Unknown left side: {splitCondition[0]}");
+                Services.PluginLog.Info($"[ERROR] Unknown left side: {splitCondition[0]}");
                 break;
         }
 
@@ -213,7 +253,7 @@ public static class MacroString
             case "[eq]":
                 return leftSide == rightSide;
             default:
-                Service.PluginLog.Info($"[ERROR] Unknown comparison: {splitCondition[1]}");
+                Services.PluginLog.Info($"[ERROR] Unknown comparison: {splitCondition[1]}");
                 break;
         }
 
